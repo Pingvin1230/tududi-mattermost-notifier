@@ -1,0 +1,71 @@
+# Mattermost webhook configuration
+mattermost:
+  # Webhook URL from Mattermost incoming webhook integration
+  # Example: https://mattermost.example.com/hooks/abc123def456
+  webhook_url: "https://mattermost.example.com/hooks/YOUR_WEBHOOK_ID_HERE"
+  
+  # Request timeout in seconds
+  timeout: 10
+
+# tududi database configuration
+tududi:
+  # Path to tududi SQLite database
+  # Default: /opt/tududi/data/production.sqlite3
+  db_path: "/opt/tududi/data/production.sqlite3"
+
+# State file configuration (tracks which notifications have been sent)
+state:
+  # Path to state file
+  path: "./state/notifier_state.json"
+
+# Notification settings (mirrors tududi's notification preferences)
+notifications:
+  # Enable/disable specific notification types
+  # These match the notification preference categories in tududi
+  types:
+    # Tasks with due_date within 24 hours
+    dueTasks: true
+    
+    # Tasks past their due_date
+    overdueTasks: true
+    
+    # Projects with due_date_at within 24 hours
+    dueProjects: true
+    
+    # Projects past their due_date_at
+    overdueProjects: true
+    
+    # Deferred tasks that reached their defer_until date
+    deferUntil: true
+  
+  # Minimum notification level to send
+  # Notifications below this level will be ignored
+  # Options: info, warning, error
+  #
+  # Level meanings:
+  # - info: General information (e.g., task due in 20 hours)
+  # - warning: Important reminders (e.g., task due in 2 hours)
+  # - error: Critical alerts (e.g., task overdue)
+  #
+  # Set to "warning" to skip info-level notifications
+  # Set to "info" to receive all notifications
+  min_level: "warning"
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Log file path
+  file: "./logs/notifier.log"
+
+# Additional options
+options:
+  # How often the notifier checks for new notifications (for reference)
+  # This should match your cron schedule (e.g., 300 seconds = 5 minutes)
+  check_interval_seconds: 300
+  
+  # Maximum number of notifications to send per run
+  # Prevents spam if many notifications were created between runs
+  # Set to 0 for unlimited
+  max_notifications_per_run: 50
