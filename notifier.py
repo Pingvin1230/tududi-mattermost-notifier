@@ -121,6 +121,7 @@ class Notifier:
             FROM notifications 
             WHERE created_at > ?
               AND dismissed_at IS NULL
+              AND read_at IS NULL
             ORDER BY created_at
         ''', (last_check,))
         
@@ -198,6 +199,26 @@ class Notifier:
             print(f"ERROR sending notification: {e}", file=sys.stderr)
             return False
     
+    def _mark_as_read(self, notif_id: int, verbose: bool = False):
+        """Mark notification as read in tududi database."""
+        conn = sqlite3.connect(self.db_path)
+        now = datetime.now(timezone.utc).isoformat()
+        
+        try:
+            conn.execute('''
+                UPDATE notifications 
+                SET read_at = ?
+                WHERE id = ?
+            ''', (now, notif_id))
+            conn.commit()
+            
+            if verbose:
+                print(f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}] Marked notification #{notif_id} as read")
+        except Exception as e:
+            print(f"ERROR marking notification #{notif_id} as read: {e}", file=sys.stderr)
+        finally:
+            conn.close()
+    
     def run(self, verbose: bool = False, dry_run: bool = False):
         """Run the notifier."""
         timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
@@ -208,7 +229,7 @@ class Notifier:
         if verbose:
             print(f"[{timestamp}] Last check: {last_check}")
         
-        # Fetch new notifications
+        # Fetch new notifications (only unread ones)
         notifications = self._get_new_notifications(last_check)
         
         if not notifications:
@@ -217,22 +238,25 @@ class Notifier:
             print(f"[{timestamp}] OK: no new notifications")
             return
         
-        # Filter notifications
+        # Filter notifications by type and level
         filtered = [n for n in notifications if self._should_send_notification(n)]
         
         if verbose:
-            print(f"[{timestamp}] Found {len(notifications)} notifications, {len(filtered)} to send")
+            print(f"[{timestamp}] Found {len(notifications)} unread notifications, {len(filtered)} to send")
         
         # Apply rate limiting
         if self.max_notifications > 0 and len(filtered) > self.max_notifications:
             print(f"[{timestamp}] WARNING: Limiting to {self.max_notifications} notifications (found {len(filtered)})")
             filtered = filtered[:self.max_notifications]
         
-        # Send notifications
+        # Send notifications and mark as read
         sent = 0
         for notif in filtered:
             if self._send_notification(notif, dry_run):
                 sent += 1
+                # Mark as read in tududi database (unless dry-run)
+                if not dry_run:
+                    self._mark_as_read(notif['id'], verbose)
         
         # Update state
         state['last_check'] = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
